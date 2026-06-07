@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+@theme {
+  /* Warm cream palette */
+  --color-cream-50: #FFFBF3;
+  --color-cream-100: #FEF5E4;
+  --color-cream-200: #FCE8C3;
+  --color-cream-300: #F8D99A;
+
+  /* Honey / amber */
+  --color-honey-300: #FCD34D;
+  --color-honey-400: #FBBF24;
+  --color-honey-500: #F59E0B;
+  --color-honey-600: #D97706;
+  --color-honey-700: #B45309;
+
+  /* Ember / terracotta */
+  --color-ember-400: #FB923C;
+  --color-ember-500: #F97316;
+  --color-ember-600: #EA580C;
+  --color-ember-700: #C2410C;
+
+  /* Bark / deep brown */
+  --color-bark-600: #C05621;
+  --color-bark-700: #9C4221;
+  --color-bark-800: #7B341E;
+  --color-bark-900: #3D1A08;
+
+  /* Neutral warm stone */
+  --color-stone-warm-400: #A8A29E;
+  --color-stone-warm-500: #78716C;
+  --color-stone-warm-600: #57534E;
+
+  /* Font families */
+  --font-display: var(--font-playfair), Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+body {
+  background-color: #FFFBF3;
+  color: #3D1A08;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: #FEF5E4;
+}
+::-webkit-scrollbar-thumb {
+  background: #D97706;
+  border-radius: 2px;
+}
+
+/* Reveal animation for published posts */
+@keyframes reveal-bloom {
+  0% { opacity: 0; transform: scale(0.92); filter: blur(8px); }
+  60% { opacity: 1; filter: blur(0); }
+  100% { transform: scale(1); }
+}
+
+@keyframes slide-up {
+  0% { opacity: 0; transform: translateY(16px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes bounce-in {
+  0% { transform: scale(0); }
+  60% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.animate-reveal-bloom {
+  animation: reveal-bloom 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.4s ease-out forwards;
+}
+
+.animate-bounce-in {
+  animation: bounce-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Bottom nav safe area */
+.pb-nav {
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+}
