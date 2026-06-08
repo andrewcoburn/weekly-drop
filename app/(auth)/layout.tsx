@@ -1,4 +1,8 @@
+import { isSupabaseConfigured } from '@/lib/supabase/client'
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
+  const configured = isSupabaseConfigured()
+
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-5 py-12 bg-cream-50">
       <div className="w-full max-w-sm">
@@ -12,6 +16,18 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             Drop a memory every week.<br />The magic happens at deadline.
           </p>
         </div>
+
+        {/* Show setup banner if Supabase isn't connected yet */}
+        {!configured && (
+          <div className="mb-6 bg-bark-900 text-cream-50 rounded-2xl px-4 py-3 text-sm space-y-1">
+            <p className="font-semibold">⚙️ Database not connected yet</p>
+            <p className="text-cream-200 text-xs leading-relaxed">
+              Open <code className="bg-bark-800 px-1 rounded">.env.local</code> and replace the
+              placeholder values with your real Supabase URL and anon key, then restart the dev server.
+            </p>
+          </div>
+        )}
+
         {children}
       </div>
     </main>

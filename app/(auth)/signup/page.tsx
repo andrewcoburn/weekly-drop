@@ -3,7 +3,21 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
+
+const NOT_CONFIGURED =
+  'App not connected to a database yet. Add your Supabase credentials in Vercel → Project Settings → Environment Variables, then redeploy.'
+
+function friendlyError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err)
+  if (
+    msg.includes('Invalid value') ||
+    msg.includes('fetch') ||
+    msg.includes('not connected') ||
+    msg.includes('SUPABASE')
+  ) return NOT_CONFIGURED
+  return msg
+}
 import Button from '@/components/ui/Button'
 import OtpInput from '@/components/ui/OtpInput'
 import ResendButton from '@/components/ui/ResendButton'
@@ -34,31 +48,31 @@ export default function SignupPage() {
     if (!name.trim()) { setError('Please enter your name.'); return }
     if (password.length < 8) { setError('Password must be at least 8 characters.'); return }
     if (password !== confirm) { setError("Passwords don't match."); return }
+    if (!isSupabaseConfigured()) { setError(NOT_CONFIGURED); return }
 
     setLoading(true)
-    const supabase = createClient()
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { name: name.trim() } },
-    })
-
-    if (error) {
-      setError(error.message)
-      setLoading(false)
-      return
-    }
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { name: name.trim() } },
+      })
+      if (error) throw error
 
     // If already confirmed (e.g. Supabase email confirmation disabled), go straight in
-    if (data.session) {
-      router.push('/dashboard')
-      router.refresh()
-      return
+      if (data.session) {
+        router.push('/dashboard')
+        router.refresh()
+        return
+      }
+      // Email confirmation required — show OTP step
+      setStep('verify')
+    } catch (err) {
+      setError(friendlyError(err))
+    } finally {
+      setLoading(false)
     }
-
-    // Email confirmation required — show OTP step
-    setStep('verify')
-    setLoading(false)
   }
 
   async function handleVerify(code: string) {
@@ -67,25 +81,24 @@ export default function SignupPage() {
     setVerifying(true)
     setError(null)
 
-    const supabase = createClient()
-    const { error } = await supabase.auth.verifyOtp({
-      email,
-      token,
-      type: 'signup',
-    })
-
-    if (error) {
-      setError('Invalid or expired code. Try resending.')
-      setVerifying(false)
-    } else {
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.verifyOtp({ email, token, type: 'signup' })
+      if (error) throw error
       router.push('/dashboard')
       router.refresh()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setError(msg.includes('expired') || msg.includes('invalid') ? 'Invalid or expired code. Try resending.' : friendlyError(err))
+      setVerifying(false)
     }
   }
 
   async function resendCode() {
-    const supabase = createClient()
-    await supabase.auth.resend({ type: 'signup', email })
+    try {
+      const supabase = createClient()
+      await supabase.auth.resend({ type: 'signup', email })
+    } catch { /* silent */ }
   }
 
   // Auto-verify when all 6 digits entered
