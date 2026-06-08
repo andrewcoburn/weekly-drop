@@ -13,15 +13,10 @@ const NOT_CONFIGURED =
 
 function friendlyError(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err)
-  if (
-    msg.includes('Invalid value') ||
-    msg.includes('fetch') ||
-    msg.includes('not connected') ||
-    msg.includes('not configured') ||
-    msg.includes('SUPABASE')
-  ) return NOT_CONFIGURED
+  if (msg.includes('Invalid value') || msg.includes('fetch') || msg.includes('SUPABASE'))
+    return NOT_CONFIGURED
   if (msg.toLowerCase().includes('invalid login credentials'))
-    return 'Wrong email or password. Try again, or use "Forgot password" below.'
+    return 'Wrong email or password. Try again, or tap "Forgot password" below.'
   return msg
 }
 
@@ -39,17 +34,10 @@ export default function LoginPage() {
   const [verifying, setVerifying] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // ── Password sign-in ──
   async function handlePasswordLogin(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-
-    // Guard: check credentials are set before any fetch attempt
-    if (!isSupabaseConfigured()) {
-      setError(NOT_CONFIGURED)
-      return
-    }
-
+    if (!isSupabaseConfigured()) { setError(NOT_CONFIGURED); return }
     setLoading(true)
     try {
       const supabase = createClient()
@@ -63,20 +51,21 @@ export default function LoginPage() {
     }
   }
 
-  // ── Send OTP code ──
-  async function handleSendOtp(e: React.FormEvent) {
+  async function handleSendCode(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-
-    if (!isSupabaseConfigured()) {
-      setError(NOT_CONFIGURED)
-      return
-    }
-
+    if (!isSupabaseConfigured()) { setError(NOT_CONFIGURED); return }
     setLoading(true)
     try {
       const supabase = createClient()
-      const { error } = await supabase.auth.signInWithOtp({ email })
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          // Ensures the email link routes through our callback → /dashboard
+          // rather than landing on the raw Site URL
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+        },
+      })
       if (error) throw error
       setMode('otp-verify')
     } catch (err) {
@@ -86,13 +75,10 @@ export default function LoginPage() {
     }
   }
 
-  // ── Verify OTP code ──
   async function handleVerify(code: string) {
     const token = code || otp
     if (token.length < 6) return
-
     if (!isSupabaseConfigured()) { setError(NOT_CONFIGURED); return }
-
     setVerifying(true)
     setError(null)
     try {
@@ -112,11 +98,16 @@ export default function LoginPage() {
     }
   }
 
-  async function resendOtp() {
+  async function resendCode() {
     if (!isSupabaseConfigured()) return
     try {
       const supabase = createClient()
-      await supabase.auth.signInWithOtp({ email })
+      await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+        },
+      })
     } catch { /* silent */ }
   }
 
@@ -125,48 +116,54 @@ export default function LoginPage() {
     if (val.length === 6) handleVerify(val)
   }
 
-  // ── OTP verify screen ──
   if (mode === 'otp-verify') {
     return (
-      <div className="space-y-6">
+      <div className="space-y-5">
         <div className="text-center">
-          <div className="text-4xl mb-3">🔢</div>
-          <h2 className="font-display text-2xl font-bold text-bark-900">Enter your code</h2>
+          <div className="text-4xl mb-3">📬</div>
+          <h2 className="font-display text-2xl font-bold text-bark-900">Check your email</h2>
           <p className="text-stone-warm-500 text-sm mt-1.5 leading-relaxed">
-            We sent a 6-digit code to<br />
+            We sent a sign-in link to<br />
             <strong className="text-bark-800">{email}</strong>
           </p>
         </div>
 
-        <OtpInput value={otp} onChange={handleOtpChange} disabled={verifying} />
+        {/* Primary action — click the link */}
+        <div className="bg-honey-400/10 border border-honey-400 rounded-2xl px-4 py-3 text-sm text-bark-800 space-y-1">
+          <p className="font-semibold">👆 Just click the link in the email</p>
+          <p className="text-stone-warm-500 text-xs">It signs you in instantly — no typing needed. Check spam if you don't see it.</p>
+        </div>
 
-        {error && (
-          <p className="text-red-600 text-sm bg-red-50 px-4 py-2.5 rounded-2xl border border-red-100 text-center">
-            {error}
-          </p>
-        )}
+        {/* Secondary — 6-digit code if OTP is enabled in Supabase */}
+        <details className="group">
+          <summary className="text-xs text-stone-warm-400 text-center cursor-pointer select-none list-none">
+            Got a 6-digit code instead? Enter it here ▾
+          </summary>
+          <div className="mt-4 space-y-4">
+            <OtpInput value={otp} onChange={handleOtpChange} disabled={verifying} />
+            {error && (
+              <p className="text-red-600 text-sm bg-red-50 px-4 py-2.5 rounded-2xl border border-red-100 text-center">{error}</p>
+            )}
+            <Button fullWidth size="lg" onClick={() => handleVerify(otp)} loading={verifying} disabled={otp.length < 6}>
+              Sign in with code
+            </Button>
+          </div>
+        </details>
 
-        <Button fullWidth size="lg" onClick={() => handleVerify(otp)} loading={verifying} disabled={otp.length < 6}>
-          Sign in
-        </Button>
-
-        <ResendButton onResend={resendOtp} />
+        <ResendButton onResend={resendCode} />
 
         <button type="button" onClick={() => { setMode('password'); setOtp(''); setError(null) }}
-          className="w-full text-sm text-stone-warm-400 underline underline-offset-2">
-          ← Back to sign in
+          className="w-full text-sm text-honey-600 font-medium underline underline-offset-2">
+          Use password instead →
         </button>
       </div>
     )
   }
 
-  // ── Send code screen ──
   if (mode === 'otp-send') {
     return (
-      <form onSubmit={handleSendOtp} className="space-y-4">
-        <div className="text-center mb-2">
-          <p className="text-sm text-stone-warm-500">Enter your email and we'll send a 6-digit code.</p>
-        </div>
+      <form onSubmit={handleSendCode} className="space-y-4">
+        <p className="text-sm text-stone-warm-500 text-center">We'll email you a 6-digit sign-in code.</p>
         <div>
           <label className="block text-sm font-medium text-bark-800 mb-1.5">Email</label>
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
@@ -188,7 +185,6 @@ export default function LoginPage() {
     )
   }
 
-  // ── Password screen (default) ──
   return (
     <form onSubmit={handlePasswordLogin} className="space-y-4">
       <div>
@@ -219,7 +215,9 @@ export default function LoginPage() {
       <div className="flex flex-col items-center gap-2 pt-1">
         <p className="text-sm text-stone-warm-500">
           New here?{' '}
-          <Link href="/signup" className="text-honey-600 font-medium underline underline-offset-2">Create an account</Link>
+          <Link href="/signup" className="text-honey-600 font-medium underline underline-offset-2">
+            Create an account
+          </Link>
         </p>
         <button type="button" onClick={() => { setMode('otp-send'); setError(null) }}
           className="text-xs text-stone-warm-400 underline underline-offset-2">

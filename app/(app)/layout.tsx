@@ -1,6 +1,8 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getInitials } from '@/lib/utils'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -8,14 +10,22 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   if (!user) redirect('/login')
 
-  // Unread notification count
-  const { count } = await supabase
-    .from('notifications')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.id)
-    .eq('read', false)
+  // Safely fetch profile + notification count — never crash the layout
+  let profileName = user.email ?? '?'
+  let profileAvatarUrl: string | null = null
+  let unreadCount = 0
 
-  const unreadCount = count ?? 0
+  try {
+    const [profileRes, notifRes] = await Promise.all([
+      supabase.from('users').select('name, avatar_url').eq('id', user.id).single(),
+      supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('read', false),
+    ])
+    if (profileRes.data?.name) profileName = profileRes.data.name
+    if (profileRes.data?.avatar_url) profileAvatarUrl = profileRes.data.avatar_url
+    unreadCount = notifRes.count ?? 0
+  } catch {
+    // Tables not set up yet or Supabase unreachable — render with defaults
+  }
 
   return (
     <div className="min-h-screen bg-cream-50 flex flex-col">
@@ -24,12 +34,32 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </main>
 
       {/* Bottom navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-cream-50/95 backdrop-blur-sm border-t border-cream-200 z-40"
-           style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <nav
+        className="fixed bottom-0 left-0 right-0 bg-cream-50/95 backdrop-blur-sm border-t border-cream-200 z-40"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
         <div className="flex items-center justify-around max-w-md mx-auto h-16">
           <NavItem href="/dashboard" icon="🏠" label="Home" />
           <NavItem href="/groups/create" icon="＋" label="New" highlight />
           <NavItem href="/notifications" icon="🔔" label="Alerts" badge={unreadCount} />
+
+          {/* Profile */}
+          <Link href="/profile" className="flex flex-col items-center gap-0.5 px-4 py-1">
+            <div className="w-8 h-8 rounded-full overflow-hidden bg-honey-400 flex items-center justify-center text-xs font-bold text-bark-900 flex-shrink-0">
+              {profileAvatarUrl ? (
+                <Image
+                  src={profileAvatarUrl}
+                  alt={profileName}
+                  width={32}
+                  height={32}
+                  className="object-cover w-full h-full"
+                />
+              ) : (
+                <span>{getInitials(profileName)}</span>
+              )}
+            </div>
+            <span className="text-[10px] text-stone-warm-500 font-medium">Profile</span>
+          </Link>
         </div>
       </nav>
     </div>
