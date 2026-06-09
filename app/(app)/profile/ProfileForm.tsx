@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { getInitials, formatDate } from '@/lib/utils'
 import Button from '@/components/ui/Button'
+import PushPermission from '@/components/notifications/PushPermission'
 
 interface Props {
   userId: string
@@ -200,6 +201,15 @@ export default function ProfileForm({
       {/* Divider */}
       <div className="border-t border-cream-200" />
 
+      {/* Notifications */}
+      <div className="space-y-2">
+        <h2 className="text-sm font-semibold text-bark-800">Notifications</h2>
+        <PushPermission />
+        <p className="text-xs text-stone-warm-400 px-1">
+          Push notifications are sent when your weekly drop publishes, when you're selected as captain, and when mutiny mode activates.
+        </p>
+      </div>
+
       {/* Password */}
       <div className="space-y-2">
         <h2 className="text-sm font-semibold text-bark-800">Password</h2>
@@ -212,9 +222,25 @@ export default function ProfileForm({
         </Link>
       </div>
 
-      {/* Sign out */}
+      {/* Account */}
       <div className="space-y-2">
         <h2 className="text-sm font-semibold text-bark-800">Account</h2>
+
+        {/* Switch account */}
+        <button
+          type="button"
+          onClick={handleSignOut}
+          disabled={signingOut}
+          className="w-full flex items-center gap-3 px-4 py-3 bg-cream-100 border border-cream-200 rounded-2xl hover:bg-cream-200 transition-colors disabled:opacity-50"
+        >
+          <span className="text-lg">🔄</span>
+          <div className="text-left">
+            <p className="text-sm font-medium text-bark-800">Switch account</p>
+            <p className="text-xs text-stone-warm-400">Signs you out so you can log in as someone else</p>
+          </div>
+        </button>
+
+        {/* Sign out */}
         <button
           type="button"
           onClick={handleSignOut}

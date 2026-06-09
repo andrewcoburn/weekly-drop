@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import type { Notification } from '@/types'
 import { formatDate } from '@/lib/utils'
+import PushPermission from '@/components/notifications/PushPermission'
 
 const icons: Record<string, string> = {
   captain_selected: '👑',
@@ -33,15 +34,19 @@ export default async function NotificationsPage() {
   const items = (notifications ?? []) as Notification[]
 
   return (
-    <div className="px-4 pt-6 max-w-md mx-auto">
+    <div className="px-4 pt-6 max-w-md mx-auto space-y-5">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-3">
         <Link href="/dashboard" className="text-xl text-stone-warm-500">‹</Link>
         <h1 className="font-display text-2xl font-bold text-bark-900">Notifications</h1>
       </div>
 
+      {/* Push permission prompt */}
+      <PushPermission />
+
+      {/* Notification list */}
       {items.length === 0 ? (
-        <div className="text-center py-16">
+        <div className="text-center py-12">
           <div className="text-5xl mb-4">🔔</div>
           <p className="text-stone-warm-500">Nothing here yet. Check back after your first drop!</p>
         </div>

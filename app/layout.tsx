@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist } from 'next/font/google'
 import { Playfair_Display } from 'next/font/google'
+import ServiceWorkerRegister from '@/components/ui/ServiceWorkerRegister'
 import './globals.css'
 
 const geist = Geist({
@@ -37,6 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${geist.variable} ${playfair.variable} h-full`}>
       <body className="min-h-full bg-cream-50 text-bark-900 antialiased">
+        <ServiceWorkerRegister />
         {children}
       </body>
     </html>

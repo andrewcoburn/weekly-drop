@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { postToInstagram } from '@/lib/instagram'
+import { sendPushToUsers } from '@/lib/push'
 import { NextRequest } from 'next/server'
 
 /**
@@ -124,15 +125,26 @@ async function publishCycle(
     .eq('id', cycle.group_id)
     .single()
 
-  if (members && members.length > 0) {
+  const memberIds = (members ?? []).map((m) => m.user_id as string)
+  const groupName = group?.name ?? 'your group'
+
+  if (memberIds.length > 0) {
+    // In-app notifications
     await service.from('notifications').insert(
-      members.map((m) => ({
-        user_id: m.user_id,
+      memberIds.map((uid) => ({
+        user_id: uid,
         group_id: cycle.group_id,
         type: 'post_published' as const,
-        message: `✨ This week's drop is live in ${group?.name ?? 'your group'}! Check the vault.`,
+        message: `✨ This week's drop is live in ${groupName}! Check the vault.`,
       }))
     )
+
+    // Push notifications (silent fail if VAPID not configured)
+    await sendPushToUsers(memberIds, {
+      title: `${groupName} — weekly drop is live! ✨`,
+      body: caption.slice(0, 100),
+      url: `/groups/${cycle.group_id}/vault`,
+    }).catch(() => {})
   }
 }
 

@@ -30,9 +30,16 @@ export async function GET(request: NextRequest) {
     }
   )
 
-  // ── PKCE code exchange (magic link, OAuth, some password resets) ──
+  // Always clear the recovery intent cookie after the callback fires,
+  // whether exchange succeeds or fails, so it doesn't affect future logins.
+  const clearRecovery = () => {
+    try { cookieStore.set('wr-recovery', '', { maxAge: 0, path: '/' }) } catch { /* ignore */ }
+  }
+
+  // ── PKCE code exchange ──
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
+    clearRecovery()
     if (!error) return NextResponse.redirect(`${origin}${next}`)
   }
 
@@ -42,10 +49,13 @@ export async function GET(request: NextRequest) {
       type: type as 'recovery' | 'signup' | 'email' | 'magiclink',
       token_hash,
     })
+    clearRecovery()
     if (!error) return NextResponse.redirect(`${origin}${next}`)
   }
 
-  // Something went wrong — send to reset page with an error flag
+  clearRecovery()
+
+  // Exchange failed — route to appropriate error page
   const errorDest = next.startsWith('/reset-password')
     ? `${origin}/reset-password?error=expired`
     : `${origin}/login?error=auth_failed`

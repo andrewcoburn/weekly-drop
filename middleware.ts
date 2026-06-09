@@ -44,8 +44,17 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Redirect authed users away from auth pages
-  if (user && (pathname === '/login' || pathname === '/signup' || pathname === '/')) {
+  // Redirect authed users away from auth pages —
+  // but NOT when the root URL carries Supabase auth params (?code / ?token_hash / ?error).
+  // Those params must reach app/page.tsx so the auth exchange can happen.
+  const hasAuthParams =
+    request.nextUrl.searchParams.has('code') ||
+    request.nextUrl.searchParams.has('token_hash') ||
+    request.nextUrl.searchParams.has('error')
+
+  const isRootWithAuthParams = pathname === '/' && hasAuthParams
+
+  if (user && !isRootWithAuthParams && (pathname === '/login' || pathname === '/signup' || pathname === '/')) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 

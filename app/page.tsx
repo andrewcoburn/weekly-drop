@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 interface Props {
@@ -10,28 +11,33 @@ interface Props {
 }
 
 /**
- * Root page — also acts as a catch-all for when Supabase redirects back to the
- * Site URL with auth params (happens when the redirect URL isn't whitelisted).
- * Forwards the params to /auth/callback so they're exchanged properly.
+ * Root page — also the Site URL fallback when Supabase's redirect_to URL
+ * isn't whitelisted. Supabase drops auth params (?code= or ?token_hash=)
+ * here instead of /auth/callback. We catch them and forward correctly.
+ *
+ * The `wr-recovery` cookie (set by /forgot-password when the reset email
+ * is sent) is the only reliable signal that a ?code= param is for password
+ * recovery — Supabase PKCE redirects don't include type=recovery in the URL.
  */
 export default async function Home({ searchParams }: Props) {
   const params = await searchParams
+  const cookieStore = await cookies()
+  const isRecovery = cookieStore.get('wr-recovery')?.value === '1'
 
-  // Supabase sent an error (e.g. expired reset link)
+  // Auth error from Supabase (e.g. link expired)
   if (params.error) {
-    const dest = params.type === 'recovery'
+    redirect(isRecovery || params.type === 'recovery'
       ? '/reset-password?error=expired'
-      : '/login'
-    redirect(dest)
+      : '/login')
   }
 
-  // PKCE code — forward to callback with correct next destination
+  // PKCE code — direction depends on the wr-recovery cookie
   if (params.code) {
-    const next = params.type === 'recovery' ? '/reset-password' : '/dashboard'
+    const next = isRecovery ? '/reset-password' : '/dashboard'
     redirect(`/auth/callback?code=${encodeURIComponent(params.code)}&next=${next}`)
   }
 
-  // token_hash — forward to callback with correct next destination
+  // token_hash — type=recovery is included by Supabase in this format
   if (params.token_hash && params.type) {
     const next = params.type === 'recovery' ? '/reset-password' : '/dashboard'
     redirect(
@@ -39,6 +45,5 @@ export default async function Home({ searchParams }: Props) {
     )
   }
 
-  // Normal visit — send to dashboard (middleware will redirect to login if not authed)
   redirect('/dashboard')
 }

@@ -1,5 +1,6 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getWeekStart } from '@/lib/utils'
+import { sendPushToUser, sendPushToUsers } from '@/lib/push'
 
 /**
  * POST /api/captain
@@ -91,5 +92,66 @@ export async function POST(req: Request) {
     )
   }
 
+  // Push notifications (silent fail if VAPID not configured)
+  sendPushToUser(captainUserId, {
+    title: '👑 You\'re the captain this week!',
+    body: `Write the caption for ${group.name} after the deadline.`,
+    url: `/groups/${groupId}/captain`,
+  }).catch(() => {})
+
+  const otherIds = otherMembers.map((m) => m.user_id)
+  if (otherIds.length > 0) {
+    sendPushToUsers(otherIds, {
+      title: `📸 New week in ${group.name}!`,
+      body: 'Drop your memory before the deadline.',
+      url: `/groups/${groupId}/submit`,
+    }).catch(() => {})
+  }
+
   return Response.json({ cycle, captainName: captainUser?.name })
+}
+
+/**
+ * PATCH /api/captain
+ * Captain submits caption + song. Sets cycle status to captain_set.
+ */
+export async function PATCH(req: Request) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { cycleId, caption, song } = await req.json()
+  if (!cycleId || !caption?.trim()) {
+    return Response.json({ error: 'cycleId and caption are required' }, { status: 400 })
+  }
+
+  const service = await createServiceClient()
+
+  // Verify the caller is the captain for this cycle
+  const { data: cycle } = await service
+    .from('weekly_cycles')
+    .select('captain_id, group_id, status')
+    .eq('id', cycleId)
+    .single()
+
+  if (!cycle) return Response.json({ error: 'Cycle not found' }, { status: 404 })
+  if (cycle.captain_id !== user.id) {
+    return Response.json({ error: 'Only the captain can set the caption' }, { status: 403 })
+  }
+  if (cycle.status === 'published') {
+    return Response.json({ error: 'Cycle already published' }, { status: 400 })
+  }
+
+  const { error } = await service
+    .from('weekly_cycles')
+    .update({
+      caption: caption.trim(),
+      song: song?.trim() || null,
+      status: 'captain_set',
+    })
+    .eq('id', cycleId)
+
+  if (error) return Response.json({ error: error.message }, { status: 500 })
+
+  return Response.json({ ok: true })
 }

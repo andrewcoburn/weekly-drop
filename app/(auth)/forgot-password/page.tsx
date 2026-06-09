@@ -25,6 +25,11 @@ export default function ForgotPasswordPage() {
     if (error) {
       setError(error.message)
     } else {
+      // Mark this browser as expecting a recovery redirect.
+      // The root page reads this cookie so it knows to route the
+      // ?code= param to /reset-password even when the Supabase
+      // redirect URL isn't whitelisted (so Supabase falls back to Site URL).
+      document.cookie = 'wr-recovery=1; max-age=600; path=/; samesite=lax'
       setSent(true)
     }
     setLoading(false)
@@ -40,6 +45,12 @@ export default function ForgotPasswordPage() {
           <strong className="text-bark-800">{email}</strong>.<br />
           Click it to set a new password.
         </p>
+        <div className="bg-honey-400/10 border border-honey-300 rounded-2xl px-4 py-3 text-sm text-bark-800 text-left space-y-1">
+          <p className="font-semibold">📬 Don't see it?</p>
+          <p className="text-stone-warm-500 text-xs leading-relaxed">
+            Check your <strong className="text-bark-800">junk / spam folder</strong> — reset emails often end up there. If it's still not there after a minute, tap below to go back and try again.
+          </p>
+        </div>
         <Link href="/login" className="text-sm text-honey-600 underline underline-offset-2 block">
           Back to sign in
         </Link>
